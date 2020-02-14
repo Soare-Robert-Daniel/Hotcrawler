@@ -6,6 +6,6 @@
 
 # Running
 1. `npm i`
-2. `node voyeur.js -- help` to see te options
+2. `node voyeur.js -- help` to see the options
 3. Explore `./crawledData` and browse your spicy data at will with your favorite JSON viewer
 
