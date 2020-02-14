@@ -5,10 +5,13 @@
         const { JSDOM } = require("jsdom");
         const moment = require('moment');
         const program = require('commander');
+        const ProgressBar = require('progress');
+        const cliProgress = require('cli-progress');
 
         // Utils
+        const logs = []
         const logger = msg => {
-            console.log(msg)
+            logs.push(msg)
         }
 
 
@@ -35,7 +38,7 @@
                 console.log('  $ node voyeur.js -s 30 -a 18 -l');
                 console.log('  $ node voyeur.js -s 30 -r 18-20 -l -spwa');
                 console.log('  $ node voyeur.js -s 30 -r 18-20 -a 30 -> \'a\' will override the \'r\' option');
-            }) 
+            })
             .parse(process.argv);
 
         const numCrawledPornstars = parseInt(program.sample)
@@ -52,12 +55,8 @@
             logger(gender)
             logger(skipPornstarsWithoutAge)
         }
-        /*
-        const numCrawledPornstars = process.argv[2] || 1000
-        let neededAge = process.argv[3] || -1
-        const gender = process.argv[4] || "female"
-        const skipPornstarsWithoutAge = process.argv[5] || false
-        */
+      
+
         // Useful Information
         let pornstars = []
         const pornstarUrls = []
@@ -67,13 +66,22 @@
         /*
             Get the profiles url adress
         */
+
+        console.log("Getting the url adress of the profiles...")
+
+        // create a new progress bar instance
+        const urlsProgress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+        urlsProgress.start(numCrawledPornstars, 0, { speed: 1 });
+
+        
         let crtPage = 0
         while (++crtPage === 1 || pornstarUrls.length < numCrawledPornstars) {
             const url = `https://www.pornhub.com/pornstars?gender=${gender}&page=${crtPage}`
 
-            if (showLogs) {
+            if (!showLogs) {
                 logger(`Now crawling ${url}...`)
             }
+
             const html = await (await fetch(url)).text()
             let document = (new JSDOM(html)).window.document
             if (!document.querySelector("#popularPornstars")) break // no more shit to crawl
@@ -85,7 +93,9 @@
                 if (!listItem.children[0] || !listItem.children[0].children[1]) continue // Corrupt link
                 const href = `https://www.pornhub.com${listItem.children[0].children[1].href}`
                 pornstarUrls.push(href)
-
+     
+                urlsProgress.increment(1)
+                
                 if (pornstarUrls.length >= numCrawledPornstars) break
             }
 
@@ -96,9 +106,18 @@
             ++crtPage
         }
 
+        urlsProgress.stop()
+
         /*
             Crawl the urls
         */
+        console.log("\nStarting to crawl the profiles...")
+
+        // create a new progress bar instance 
+        const crawlProgress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+        crawlProgress.start(pornstarUrls.length, 0, { speed: 1 });
+
+
         for (let url of pornstarUrls) {
             try {
                 const html = await (await fetch(url)).text()
@@ -126,7 +145,8 @@
 
                 if (showLogs) {
                     logger(`${name} ${rank}, ${birthDate}, ${age}`)
-                }
+                } 
+
 
                 pornstars.push({
                     name,
@@ -135,6 +155,9 @@
                     age,
                     url
                 })
+
+                crawlProgress.increment(1)
+
                 if (pornstars.length >= numCrawledPornstars) break
             } catch (e) {
                 if (showLogs) {
@@ -147,22 +170,30 @@
             }
         }
 
+        crawlProgress.stop()
+
         /*
             Filter the results
         */
+        console.log("\nApplying the filters.")
         if (neededAge !== 0) {
             pornstars = pornstars.filter(pornstar => pornstar.age === neededAge)
         } else if (ageRange[0] !== 0 && ageRange[0] < ageRange[1]) {
             pornstars = pornstars.filter(pornstar => ageRange[0] <= pornstar.age && pornstar.age <= ageRange[1])
         }
+        console.log(`Total results: ${pornstars.length}`)
 
         // Finalisation
         const pornstarsObject = {
             gender,
+            total_results: pornstars.length,
             pornstars,
         }
 
         require("fs").writeFileSync(`./crawledData/pornstars_${new Date().getTime()}.json`, JSON.stringify(pornstarsObject, null, 4))
+        if (showLogs) {
+            require("fs").writeFileSync(`./logs.json`, JSON.stringify({ logs }, null, 4))
+        }
     } catch (e) {
         logger(e)
     }
