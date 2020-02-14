@@ -24,7 +24,7 @@
             .option('-r, --age_range <range>', 'the age range at which they must fit', "0-0")
             .option('-g, --gender <type>', 'the gender of the pornstar', "female")
             .option('-spwa, --skip_without_age', 'skip pornstars without age')
-            .option('-l, --logger', 'show the logs')
+            .option('-l, --logger', 'write the logs')
             .on('--help', function () {
                 console.log('')
                 console.log('Examples:');
